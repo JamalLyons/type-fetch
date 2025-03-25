@@ -1,0 +1,9 @@
+{
+	"replacements": [
+		{
+			"type": "regex",
+			"from": "^@/(.*)$",
+			"to": "./src/$1"
+		}
+	]
+}

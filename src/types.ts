@@ -6,6 +6,8 @@ export interface TFetchClientOptions {
 	debug?: boolean;
 	/** Default headers to be included in all requests. */
 	headers?: HeadersInit;
+	/** How to handle DELETE request responses */
+	deleteHandling?: "empty" | "status" | "json";
 	retry: {
 		/** Number of retry attempts for failed requests. @default 0 */
 		count?: number;
@@ -15,7 +17,7 @@ export interface TFetchClientOptions {
 		onRetry?: () => void;
 	};
 	cache: {
-		/** Enable or disable caching for GET requests. @default false */
+		/** Enable or disable caching for requests. @default false */
 		enabled?: boolean;
 		/** Maximum age for cache entries in milliseconds. @default 5 minutes */
 		maxAge?: number;
@@ -36,14 +38,21 @@ export type UrlOrString = string | URL;
 /**
  * A generic type representing the result of an asynchronous operation.
  * @template T The type of the data returned on success.
- * @template E The type of the error returned on failure (default is Error).
+ * @template E The type of the error returned on failure (default is TFetchError).
  */
 export type Result<T, E = TFetchError> = { data: T | null; error: E | null };
 
 /**
  * Supported content types for requests.
  */
-export type ContentType = "json" | "form" | "text" | "blob";
+export type ContentType =
+	| "json"
+	| "form"
+	| "text"
+	| "blob"
+	| "multipart"
+	| "xml"
+	| "html";
 
 /**
  * Interface wrapping content with its associated content type.
@@ -61,21 +70,38 @@ export interface ContentWrapper<T> {
 export interface CacheEntry<T> {
 	data: T;
 	timestamp: number;
+	/** Optional expiration time for this specific cache entry */
+	expiresAt?: number;
+}
+
+/**
+ * Options for caching a specific request
+ */
+export interface RequestCacheOptions {
+	/** Override the global cache maxAge for this specific request */
+	maxAge?: number;
+	/** Whether to enable caching for this specific request */
+	enabled?: boolean;
 }
 
 /**
  * An error class for TFetchClient.
  * @param message The error message.
- * @param statusCode Optional HTTP status code associated with the error.
+ * @param status Optional HTTP status code associated with the error.
  * @returns A new TFetchError instance.
  */
 export class TFetchError extends Error {
-	constructor(
-		message: string,
-		public readonly statusCode?: number,
-	) {
+	public readonly status?: number;
+	public readonly originalError?: Error;
+
+	constructor(message: string, status?: number, originalError?: Error) {
 		super(message);
 		this.name = "TFetchError";
+		this.status = status;
+		this.originalError = originalError;
+
+		// Ensure proper prototype chain for instanceof checks
+		Object.setPrototypeOf(this, TFetchError.prototype);
 	}
 }
 
